@@ -1,0 +1,320 @@
+---
+title: "Project"
+output:
+  html_document:
+    df_print: paged
+date: "2023-11-25"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+```{r include=FALSE}
+library(tidyverse)
+library(cluster)
+library(magrittr)
+library(plotly)
+#library(caret)
+library(ggbiplot)
+library(cowplot)
+
+#Plotting Dendrogram
+library(ggdendro)
+knitr::opts_chunk$set(echo = TRUE,warning = FALSE)
+library(tibble)
+library(ggplot2)
+library(cluster)
+library(dplyr)
+library(tidyr)
+library(ggdendro)
+library(factoextra)
+library(Hmisc)
+library(plotly)
+library(mclust)
+library(fpc)
+library(wordcloud)
+library(dplyr)
+library(caret)
+library(tidyverse)
+library(cluster)
+library(magrittr)
+library(caret)
+library(ggbiplot)
+library(cowplot)
+library(data.table)
+library(fastDummies)
+library(cluster)
+library(plotly)
+library(factoextra)
+library(tibble)
+library(readr)
+library(dplyr)
+library(broom)
+library(cowplot)
+library(ggplot2)
+library(ggbiplot)
+library(fastDummies)
+library(plotly)
+library(corrplot)
+```
+
+```{r}
+df <- read.csv('train.csv')
+
+# Identify indices of majority and minority classes
+churn_indices <- which(df$Churn == 1)
+no_churn_indices <- which(df$Churn == 0)
+
+# Randomly undersample the majority class to match the size of the minority class
+set.seed(123)  # for reproducibility
+no_churn_sampled_indices <- sample(no_churn_indices, length(churn_indices))
+df <- df[c(churn_indices, no_churn_sampled_indices), ]
+
+
+# Shuffle the rows
+df <- df[sample(nrow(df)), ]
+
+stratified_sample <- df %>%
+  group_by(Churn) %>%
+  sample_n(3000)
+
+# Replace the original dataframe with the sampled data
+churn_df <- data.frame(stratified_sample)
+df = churn_df
+```
+
+```{r cars}
+df <- readr::read_csv("train.csv",show_col_types = FALSE)
+#head(df)
+
+```
+
+```{r}
+str(df)
+```
+
+
+```{r}
+summary(df)
+```
+
+```{r}
+ggplot(df, aes(x = MonthlyCharges)) +
+  geom_histogram(fill = "blue", bins = 30) +
+  labs(title = "Histogram of Monthly Charges")
+```
+
+```{r}
+# Reshape data for count plots
+df_long <- df %>% pivot_longer(cols = c(ContentType,GenrePreference,SubtitlesEnabled))
+
+# Example: Count plot for PaymentMethod
+ggplot(df_long, aes(x = value, fill = factor(Churn))) +
+  geom_bar(position = "dodge") +
+  facet_wrap(~name, scales = "free_x") +
+  labs(title = "Count plot for Categorical Variables by Churn Status", x = "Variable", y = "Count") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+```
+```{r}
+# Reshape data for count plots
+df_long <- df %>% pivot_longer(cols = c(MultiDeviceAccess, DeviceRegistered,ParentalControl, SubtitlesEnabled))
+
+# Example: Count plot for PaymentMethod
+ggplot(df_long, aes(x = value, fill = factor(Churn))) +
+  geom_bar(position = "dodge") +
+  facet_wrap(~name, scales = "free_x") +
+  labs(title = "Count plot for Categorical Variables by Churn Status", x = "Variable", y = "Count") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+```{r}
+# Example: Violin plot for MonthlyCharges by Churn
+ggplot(df, aes(x = factor(Churn), y = MonthlyCharges, fill = factor(Churn))) +
+  geom_violin() +
+  labs(title = "Violin plot of Monthly Charges by Churn Status", x = "Churn Status", y = "Monthly Charges")
+```
+# correlation Matrix heatmap 
+
+```{r}
+
+cor_matrix <- cor(df[, c("AccountAge", "MonthlyCharges", "TotalCharges", "ViewingHoursPerWeek", "UserRating", "SupportTicketsPerMonth", "WatchlistSize")])
+
+corrplot(cor_matrix, method = "number", type = "upper", tl.cex = 0.7)
+
+```
+# Example: Stacked bar plot for SubscriptionType by Churn
+
+```{r}
+
+ggplot(df, aes(x = SubscriptionType, fill = factor(Churn))) +
+  geom_bar(position = "stack") +
+  labs(title = "Stacked Bar plot of Subscription Type by Churn Status", x = "Subscription Type", y = "Count") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+```
+# Pie chart for Gender distribution
+
+```{r}
+gender_counts <- table(df$Gender)
+pie(gender_counts, labels = paste(names(gender_counts), ": ", gender_counts), main = "Gender Distribution", col = rainbow(length(gender_counts)))
+
+```
+
+#histograms for Viewing Hours Per Week by Churn
+
+```{r}
+ggplot(df, aes(x = ViewingHoursPerWeek, fill = factor(Churn))) +
+  geom_histogram(binwidth = 5, position = "dodge") +
+  facet_wrap(~Churn) +
+  labs(title = "Faceted Histograms of Viewing Hours Per Week by Churn Status", x = "Viewing Hours Per Week", y = "Count")
+```
+# Bar plot for Parental Control
+
+```{r}
+ggplot(df, aes(x = ParentalControl, fill = factor(Churn))) +
+  geom_bar(position = "dodge") +
+  labs(title = "Bar plot of Parental Control by Churn Status", x = "Parental Control", y = "Count")
+```
+#Churn Rates and box plot for  Payment Method
+```{r}
+ggplot(df, aes(x = PaymentMethod, fill = PaymentMethod)) +
+  geom_bar() +
+  labs(title = "Distribution of Payment Methods")
+
+
+ggplot(df, aes(x = PaymentMethod, fill = factor(Churn))) +
+  geom_bar(position = "fill") +
+  labs(title = "Churn Rates by Payment Method", y = "Proportion of Churn")
+
+ggplot(df, aes(x = PaymentMethod, fill = factor(Churn))) +
+  geom_bar(position = "dodge") +
+  labs(title = "Bar plot of Payment Method by Churn Status", x = "Payment Method", y = "Count") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+
+```
+# Monthly Charges  and total charges by Churn - Boxplot
+```{r}
+
+ggplot(df, aes(x = factor(Churn), y = MonthlyCharges, fill = factor(Churn))) +
+  geom_boxplot() +
+  labs(title = "Monthly Charges by Churn Status", x = "Churn", y = "Monthly Charges")
+
+ggplot(df, aes(x = factor(Churn), y = TotalCharges, fill = factor(Churn))) +
+  geom_boxplot() +
+  labs(title = "Total Charges by Churn Status", x = "Churn", y = "Total Charges")
+
+```
+# Monthly charges distribution and Total charges distribution by churn density plot
+```{r}
+
+ggplot(df, aes(x = MonthlyCharges, fill = factor(Churn))) +
+  geom_density(alpha = 0.5) +
+  labs(title = "Density Plot of Monthly Charges by Churn", x = "Monthly Charges")
+
+
+ggplot(df, aes(x = TotalCharges, fill = factor(Churn))) +
+  geom_density(alpha = 0.5) +
+  labs(title = "Density Plot of Total Charges by Churn", x = "Total Charges")
+
+```
+
+
+```{r}
+
+pie_chart <- function(data, variable) {
+  ggplot(data, aes(x = "", fill = !!as.symbol(variable))) +
+    geom_bar(width = 1, stat = "count") +
+    coord_polar("y") +
+    labs(title = paste("Distribution of", variable))
+}
+
+# Example pie charts for some variables
+pie_chart(df, "SubscriptionType") +
+  theme_minimal()
+
+pie_chart(df, "PaymentMethod") +
+  theme_minimal()
+
+pie_chart(df, "PaperlessBilling") +
+  theme_minimal()
+
+pie_chart(df, "ContentType") +
+  theme_minimal()
+
+pie_chart(df, "MultiDeviceAccess") +
+  theme_minimal()
+
+pie_chart(df, "DeviceRegistered") +
+  theme_minimal()
+
+pie_chart(df, "GenrePreference") +
+  theme_minimal()
+
+pie_chart(df, "Gender") +
+  theme_minimal()
+
+pie_chart(df, "ParentalControl") +
+  theme_minimal()
+
+pie_chart(df, "SubtitlesEnabled") +
+  theme_minimal()
+
+```
+
+
+
+
+
+```{r}
+library(ggplot2)
+
+# Create bands for AccountAge
+df$AgeBand <- cut(df$AccountAge, breaks = c(0, 30, 60, 90, Inf), labels = c("0-30", "30-60", "60-90", "90+"))
+
+# Plot histogram with gaps
+ggplot(df, aes(x = AccountAge, fill = factor(Churn))) +
+  geom_histogram(binwidth = 5, position = "dodge") +
+  facet_wrap(~ AgeBand, scales = "free") +
+  labs(title = "Faceted Histograms of Account Age by Churn Status", x = "Account Age", y = "Count") +
+  theme(strip.placement = "outside", strip.background = element_blank())
+
+```
+
+```{r}
+# Histogram and summary statistics
+ggplot(df, aes(x = AccountAge)) +
+  geom_histogram(binwidth = 5, fill = "blue", color = "black", alpha = 0.7) +
+  labs(title = "Histogram of Account Age", x = "Account Age", y = "Frequency")
+
+summary(df$AccountAge)
+
+```
+```{r}
+ggplot(df, aes(y = AccountAge)) +
+  geom_boxplot(fill = "lightblue", color = "black") +
+  labs(title = "Boxplot of Account Age", y = "Account Age")
+```
+```{r}
+# Distribution of AccountAge by Churn status
+ggplot(df, aes(x = factor(Churn), y = AccountAge, fill = factor(Churn))) +
+  geom_boxplot() +
+  labs(title = "Distribution of Account Age by Churn Status", x = "Churn Status", y = "Account Age")
+
+```
+```{r}
+  
+```
+```{r}
+# Correlation analysis
+cor(df$AccountAge, df$Churn)
+
+```
+

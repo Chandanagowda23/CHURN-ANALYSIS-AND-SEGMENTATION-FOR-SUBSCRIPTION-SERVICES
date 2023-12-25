@@ -1,0 +1,431 @@
+---
+title: "Project"
+output:
+  html_document:
+    df_print: paged
+date: "2023-11-25"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+```{r include=FALSE}
+library(tidyverse)
+library(cluster)
+library(magrittr)
+library(plotly)
+library(caret)
+library(ggbiplot)
+library(cowplot)
+library(ggdendro)
+knitr::opts_chunk$set(echo = TRUE,warning = FALSE)
+library(tibble)
+library(ggplot2)
+library(cluster)
+library(dplyr)
+library(tidyr)
+library(ggdendro)
+library(factoextra)
+library(Hmisc)
+library(plotly)
+library(mclust)
+library(fpc)
+library(dplyr)
+library(caret)
+library(tidyverse)
+library(cluster)
+library(magrittr)
+library(caret)
+library(ggbiplot)
+library(cowplot)
+library(data.table)
+library(fastDummies)
+library(cluster)
+library(plotly)
+library(factoextra)
+library(tibble)
+library(readr)
+library(dplyr)
+library(broom)
+library(cowplot)
+library(ggplot2)
+library(ggbiplot)
+library(fastDummies)
+library(plotly)
+library(cluster)
+library(ClusterR)
+library(igraph)
+```
+
+```{r}
+df <- read.csv('train.csv')
+
+# Identify indices of majority and minority classes
+churn_indices <- which(df$Churn == 1)
+no_churn_indices <- which(df$Churn == 0)
+
+# Randomly undersample the majority class to match the size of the minority class
+set.seed(123)  # for reproducibility
+no_churn_sampled_indices <- sample(no_churn_indices, length(churn_indices))
+df <- df[c(churn_indices, no_churn_sampled_indices), ]
+
+
+# Shuffle the rows
+df <- df[sample(nrow(df)), ]
+
+stratified_sample <- df %>%
+  group_by(Churn) %>%
+  sample_n(3000)
+
+# Replace the original dataframe with the sampled data
+df <- data.frame(stratified_sample)
+df_ni = df
+df_main = df
+```
+
+
+```{r}
+str(df)
+```
+
+#CHECKING FOR NA VALUES
+```{r}
+na_checking <- any(is.na(df))
+na_checking
+```
+
+#Checking outliers and disturbution
+
+```{r}
+numeric_columns <- sapply(df, is.numeric)
+numeric_data <- df[, numeric_columns]
+
+par(mfrow = c(3, 4))  
+
+for (i in 1:ncol(numeric_data)) {
+  boxplot(numeric_data[, i], col = "lightblue", main = names(numeric_data)[i])
+}
+
+par(mfrow = c(1, 1))
+```
+
+```{r}
+boxplot(df$TotalCharges)
+```
+# Removing outliers can lead to a loss of valuable information and variability in your data in total charges column.It represent legitimate and meaningful information about your dataset. 
+
+
+#categorical features Names
+```{r}
+numeric_column = sapply(df, is.numeric)
+categorical_colmumn = sapply(df, function(i) is.factor(i) || is.character(i))
+
+categorical_col_names = names(df[categorical_colmumn])
+categorical_col_names
+
+```
+
+#categorical features Names and unique values
+```{r}
+cat("Subscription Types:", paste(unique(df$SubscriptionType), collapse = ", "), "\n")
+cat("PaymentMethod:", paste(unique(df$PaymentMethod), collapse = ", "), "\n")
+cat("PaperlessBilling:", paste(unique(df$PaperlessBilling), collapse = ", "), "\n")
+cat("ContentType:", paste(unique(df$ContentType), collapse = ", "), "\n")
+cat("MultiDeviceAccess:", paste(unique(df$MultiDeviceAccess), collapse = ", "), "\n")
+cat("DeviceRegistered:", paste(unique(df$DeviceRegistered), collapse = ", "), "\n")
+cat("GenrePreference:", paste(unique(df$GenrePreference), collapse = ", "), "\n")
+cat("Gender:", paste(unique(df$Gender), collapse = ", "), "\n")
+cat("ParentalControl:", paste(unique(df$ParentalControl), collapse = ", "), "\n")
+cat("SubtitlesEnabled:", paste(unique(df$SubtitlesEnabled), collapse = ", "), "\n")
+
+```
+
+#One hot encoding 
+```{r}
+df$PaperlessBilling = as.numeric(df$PaperlessBilling == "No")
+df$MultiDeviceAccess = as.numeric(df$MultiDeviceAccess == "Yes")
+df$ParentalControl = as.numeric(df$ParentalControl == "Yes")
+df$SubtitlesEnabled = as.numeric(df$SubtitlesEnabled == "Yes")
+df$Gender = as.numeric(df$Gender == "Female")
+
+```
+
+# Dummy Variable Encoding
+```{r}
+df = fastDummies::dummy_cols(df, select_columns = "ContentType")
+df = fastDummies::dummy_cols(df, select_columns = "PaymentMethod")
+df = fastDummies::dummy_cols(df, select_columns = "DeviceRegistered")
+df = fastDummies::dummy_cols(df, select_columns = "GenrePreference")
+```
+
+#Ordinal Encoding
+
+
+```{r}
+df$SubscriptionType <- sapply(df$SubscriptionType, switch,
+  "Premium"=3,
+  "Basic"=1,
+  "Standard"=2,
+  )
+```
+
+
+#REMOVING UNWANTED COLUMNS
+```{r}
+columns_to_remove1 <- c("PaymentMethod","PaymentMethod_Bank transfer", "ContentType","ContentType_Both","DeviceRegistered_Computer", "DeviceRegistered","GenrePreference","GenrePreference_Sci-Fi","CustomerID")
+
+columns_to_remove2 = c("PaymentMethod","PaymentMethod_Bank transfer", "ContentType","ContentType_Both","DeviceRegistered_Computer", "DeviceRegistered","GenrePreference","GenrePreference_Sci-Fi","CustomerID", "Churn","SubscriptionType")
+df1 = df[, setdiff(names(df), columns_to_remove1)]
+df <- df[, setdiff(names(df), columns_to_remove2)]
+```
+
+
+```{r}
+df
+```
+
+```{r}
+
+cor_matrix <- cor(df)
+correlated_features <- findCorrelation(cor_matrix, cutoff = 0.9)
+correlated_features
+
+```
+#Indicates that there are no highly correlated features among themself to be removed.
+
+------------------------------------------------------------------------------------
+#SCALING DATA
+```{r}
+df_scale <- scale(df)
+```
+
+------------------------------------------------------------------------------------
+##PCA
+```{r}
+pc.out <- prcomp(df_scale, scale = T)
+#pc.out
+```
+
+
+```{r}
+pve <- 100 * pc.out$sdev^2 / sum(pc.out$sdev^2)
+par(mfrow = c(1, 2))
+plot(pve,  type = "o", ylab = "PVE",
+    xlab = "Principal Component", col = "blue")
+```
+
+```{r}
+plot(cumsum(pve), type = "o", ylab = "Cumulative PVE",
+    xlab = "Principal Component", col = "brown3")
+```
+ 20 PCs.
+ 
+```{r}
+library(ggbiplot)
+ggbiplot(pc.out, scale = T, labels=rownames(pc.out$x))
+```
+
+```{r}
+ggplotly(ggbiplot(pc.out, scale = -0, groups=df1$Churn))
+```
+
+
+#SHILA MODELS
+
+```{r}
+dist_matrix <- dist(df_scale, method = "euclidean")
+
+hc <- hclust(dist_matrix, method = "complete")
+plot(hc)
+
+plot(hc$height, type = "b")
+```
+
+```{r}
+# Silhouette method
+k_min <- 3
+k_max <- 10
+sil_width <- numeric(k_max - k_min + 1)
+
+```
+
+```{r}
+# Loop over the number of clusters
+for (k in k_min:k_max) {
+  clustering <- cutree(hclust(dist_matrix, method = "complete"), k)
+  silhouette_obj <- silhouette(clustering, dist_matrix)
+  sil_width[k - k_min + 1] <- mean(silhouette_obj[, "sil_width"])
+}
+```
+
+```{r}
+# Find the number of clusters that gives the maximum average silhouette width
+optimal_clusters <- which.max(sil_width) + k_min - 1
+
+```
+
+```{r}
+# Print the optimal number of clusters
+print(paste("Optimal number of clusters: ", optimal_clusters))
+
+clusters <- cutree(hc, k = 3)
+```
+
+```{r}
+# Add the cluster assignments to your dataframe
+df2 <- df1[, -c(4:9,13,16,18:20)]
+df2$Cluster <- clusters
+aggregate(. ~ Cluster, data = df2, mean)
+```
+
+
+Gaussian Mixture model
+
+```{r}
+opt_gmm = Optimal_Clusters_GMM(df_scale, max_clusters = 10, criterion = "BIC", 
+                               
+                               dist_mode = "maha_dist", seed_mode = "random_subset",
+                               
+                               km_iter = 10, em_iter = 10, var_floor = 1e-10, 
+                               
+                               plot_data = T)
+```
+
+```{r}
+# Run GMM clustering
+gmm_model <- Mclust(df_scale, G = 3)  # Choose the number of components (k)
+
+# Add cluster assignment to the original dataset
+churn_data_gmm <- cbind(df_scale, cluster = as.factor(gmm_model$classification))
+
+# Visualize the clusters
+fviz_cluster(gmm_model, data = df_scale, geom = "point", stand = FALSE)
+```
+
+In case of model selection, among a specific number of models, the model with the lowest BIC should be preferred, which is true here for a number of clusters equal to 3.
+
+
+```{r}
+km_rc = KMeans_rcpp(df_scale, clusters = 5, num_init = 5, max_iters = 100, 
+                    initializer = 'optimal_init', verbose = F)
+
+km_rc$between.SS_DIV_total.SS
+```
+
+```{r}
+opt = Optimal_Clusters_KMeans(df_scale, max_clusters = 10, plot_clusters = T,
+                        
+                              criterion = 'distortion_fK', fK_threshold = 0.85,
+                              
+                              initializer = 'optimal_init', tol_optimal_init = 0.2)
+```
+Values below the fixed threshold (here fK_threshold = 0.85) could be recommended for clustering, however there are multiple optimal clusterings and this highlights the fact that f(K) should only be used to suggest a guide value for the number of clusters and the final decision as to which value to adopt has to be left at the discretion of the user.
+
+
+#K MEANS
+```{r}
+km_out_list <- lapply(1:20, function(k) list(
+  k=k,
+  km_out=kmeans(df_scale, k, nstart = 20)))
+
+
+km_results <- data.frame(
+  k=sapply(km_out_list, function(k) k$k),
+  totss=sapply(km_out_list, function(k) k$km_out$totss),
+  tot_withinss=sapply(km_out_list, function(k) k$km_out$tot.withinss)
+  )
+km_results
+
+ggplot(km_results,aes(x=k,y=tot_withinss))+geom_line()+geom_point()
+```
+
+
+select optimal number of clusters using gap statistic
+```{r}
+set.seed(1)
+gap_kmeans <- clusGap(df_scale, kmeans, nstart = 20, K.max = 7, B = 10)
+
+plot(gap_kmeans, main = "Gap Statistic: kmeans")
+```
+
+
+```{r}
+#Silhouette
+set.seed(1)
+results <- lapply(2:20, function(k) {
+  kmeans_cluster <- kmeans(df_scale, k, nstart=20, iter.max=20)
+  si <- silhouette(kmeans_cluster$cluster, dist = dist(df_scale))
+  data.frame(k=k,sil_width=mean(si[,'sil_width']),sil_width_min=min(si[,'sil_width']))
+})
+si_df <- bind_rows(results)
+
+ggplot(si_df, aes(x=k,y=sil_width,color="Width Avg"))+geom_point()+geom_line()+
+  geom_point(aes(y=sil_width_min,color="Width Min"))+geom_line(aes(y=sil_width_min,color="Width Min"))
+```
+# 3 WILL BE A GOOD CHOICE.
+
+# DBScan Clustering
+# Desity Based Clustering group objects into cluster 
+#various shapes and sizes also less noise to outliers like k means
+
+
+````{r}
+unwanted_columns <- c("PaymentMethod", "PaperlessBilling", "ContentType", "MultiDeviceAccess", "DeviceRegistered", "GenrePreference", "SubtitlesEnabled", "Gender", "ParentalControl", "Churn")
+
+df_ni <- df_ni %>%
+  select(-any_of(unwanted_columns))
+
+df_ni$SubscriptionType = factor(df_ni$SubscriptionType, levels = unique(df_ni$SubscriptionType), labels = c(3L, 1L, 2L), ordered = TRUE)
+
+head(df_ni)
+```
+
+```{r}
+selected_features <- c("AccountAge", "MonthlyCharges", "TotalCharges", "SubscriptionType", "ViewingHoursPerWeek", "AverageViewingDuration", "ContentDownloadsPerMonth", "UserRating", "SupportTicketsPerMonth", "WatchlistSize")
+
+df_ni_selected <- select(df_ni, selected_features)
+```
+
+
+```{r}
+selected_features <- as.data.frame(lapply(df_ni_selected, as.numeric))
+preprocess <- preProcess(selected_features, method = c("center", "scale"))
+scaled_features_caret <- predict(preprocess, selected_features)
+
+scaled_features_caret<-apply(scaled_features_caret, 2, function(x) (x - min(x)) / (max(x) - min(x)))
+
+unwanted_columns <- c("AccountAge", "MonthlyCharges", "TotalCharges", "SubscriptionType", "ViewingHoursPerWeek", "AverageViewingDuration", "AverageViewingDuration", "ContentDownloadsPerMonth", "UserRating", "SupportTicketsPerMonth", "WatchlistSize")
+
+df_ni <- select(df_ni, -one_of(unwanted_columns))
+df_ni <- cbind(df_ni, scaled_features_caret)
+```
+
+
+```{r}
+library(tidyLPA)
+VLPA <- df_ni[,-1] %>% estimate_profiles(1:8) 
+VLPA
+```
+
+```{r}
+plot_profiles(VLPA, rawdata = FALSE)
+```
+
+```{r}
+plot_profiles(VLPA, rawdata = FALSE)
+par(las = 2)
+```
+
+```{r}
+df_ni
+```
+
+
+
+
